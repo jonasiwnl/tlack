@@ -1,8 +1,9 @@
 """
 TODO
-Custom port for host and join (optional)
-Custom identifier for join (like usernames and color). This prob needs argparse
 GUI stuff & prevent double message for sender
+connect across network instead of single device
+Custom identifier for join (like usernames and color). This prob needs argparse
+Make it possible to pass port like server:port as well as server port
 """
 
 import sys
@@ -17,16 +18,27 @@ PORT = 3000
 MAX_USERS = 10
 
 class Host:
-    def __init__(self):
+    def __init__(self, port: int):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         hostname = socket.gethostname()
-        try:
-            listener.bind((hostname, PORT))
-        except socket.error as e:
-            print(str(e))
-            sys.exit(1)
+
+        # Attempt to bind to port, if it fails, try the next port
+        for _ in range(5):
+            try:
+                listener.bind((hostname, port))
+                # Reuse address for frequent stops/starts
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                break
+            except socket.error as e:
+                if e.errno == socket.errno.EADDRINUSE:
+                    print(f'port {port} is already in use. attempting to use port {port + 1}.')
+                    port += 1
+                    continue
+
+                print(str(e))
+                return
         
-        print(f'listening on hostname {hostname} port {PORT}')
+        print(f'listening on hostname {hostname} port {port}')
         listener.listen(MAX_USERS)
 
         # Array of all connected users
@@ -58,9 +70,15 @@ class Host:
 
 
 class Join:
-    def __init__(self, hostname: str):
+    def __init__(self, hostname: str, port: int):
         self.connector = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connector.connect((hostname, PORT))
+        try:
+            self.connector.connect((hostname, port))
+        except socket.error as e:
+            print(str(e))
+            return
+
+        print(f'connected to hostname {hostname}.')
 
         receiver = threading.Thread(target=self.receive)
         receiver.start()
@@ -81,15 +99,18 @@ class Join:
 
 def main():
     if len(sys.argv) < 2:
-        print('USAGE: tlack COMMAND')
+        print('USAGE: tlack [host | join] [ARGS]')
         sys.exit(1)
 
     if sys.argv[1] == 'host':
-        Host()
+        # tlack host [port]
+        port = PORT if len(sys.argv) < 3 else int(sys.argv[2])
+        Host(port)
     elif sys.argv[1] == 'join':
-        # If a custom host isn't provided, connect to self
+        # tlack join [hostname] [port]
         hostname = socket.gethostname() if len(sys.argv) < 3 else sys.argv[2]
-        Join(hostname)
+        port = PORT if len(sys.argv) < 4 else int(sys.argv[3])
+        Join(hostname, port)
     else:
         print('unknown command. exiting.')
         sys.exit(1)
