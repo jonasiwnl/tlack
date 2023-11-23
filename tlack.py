@@ -1,7 +1,8 @@
 """
 TODO
 Custom port for host and join (optional)
-GUI stuff
+Custom identifier for join (like usernames and color). This prob needs argparse
+GUI stuff & prevent double message for sender
 """
 
 import sys
@@ -18,13 +19,14 @@ MAX_USERS = 10
 class Host:
     def __init__(self):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        hostname = socket.gethostname()
         try:
-            listener.bind((socket.gethostname(), PORT))
+            listener.bind((hostname, PORT))
         except socket.error as e:
             print(str(e))
             sys.exit(1)
         
-        print(f'listening on port {PORT}')
+        print(f'listening on hostname {hostname} port {PORT}')
         listener.listen(MAX_USERS)
 
         # Array of all connected users
@@ -39,8 +41,6 @@ class Host:
             handler = threading.Thread(target=self.handle_connection, args=(user,))
             handler.start()
 
-        # Listen for user messages, display incoming ones, and listen for new connections
-
     def handle_connection(self, socket):
         while True:
             data = socket.recv(1024)
@@ -49,6 +49,7 @@ class Host:
 
             # Broadcast the message to all clients
             self.broadcast(data)
+            print(data.decode('utf-8'))
         socket.close()
 
     def broadcast(self, msg):
@@ -57,17 +58,15 @@ class Host:
 
 
 class Join:
-    def __init__(self, host: str):
+    def __init__(self, hostname: str):
         self.connector = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connector.connect((host, PORT))
+        self.connector.connect((hostname, PORT))
 
         receiver = threading.Thread(target=self.receive)
         receiver.start()
 
         sender = threading.Thread(target=self.send)
         sender.start()
-
-        # Listen for user messages, display incoming ones
 
     def receive(self):
         while True:
@@ -89,8 +88,8 @@ def main():
         Host()
     elif sys.argv[1] == 'join':
         # If a custom host isn't provided, connect to self
-        host = socket.gethostname() if len(sys.argv) < 3 else sys.argv[2]
-        Join(host)
+        hostname = socket.gethostname() if len(sys.argv) < 3 else sys.argv[2]
+        Join(hostname)
     else:
         print('unknown command. exiting.')
         sys.exit(1)
