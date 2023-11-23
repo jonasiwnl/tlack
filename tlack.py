@@ -1,3 +1,9 @@
+"""
+TODO
+Custom port for host and join (optional)
+GUI stuff
+"""
+
 import sys
 import socket
 import threading
@@ -6,14 +12,12 @@ import threading
 
 
 # Constants
-SERVER = 'http://localhost'
 PORT = 3000
 MAX_USERS = 10
 
 class Host:
     def __init__(self):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # TODO: Port generation should be random
         try:
             listener.bind((socket.gethostname(), PORT))
         except socket.error as e:
@@ -53,9 +57,9 @@ class Host:
 
 
 class Join:
-    def __init__(self):
+    def __init__(self, host: str):
         self.connector = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connector.connect((socket.gethostname(), PORT))
+        self.connector.connect((host, PORT))
 
         receiver = threading.Thread(target=self.receive)
         receiver.start()
@@ -84,7 +88,9 @@ def main():
     if sys.argv[1] == 'host':
         Host()
     elif sys.argv[1] == 'join':
-        Join()
+        # If a custom host isn't provided, connect to self
+        host = socket.gethostname() if len(sys.argv) < 3 else sys.argv[2]
+        Join(host)
     else:
         print('unknown command. exiting.')
         sys.exit(1)
