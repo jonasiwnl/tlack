@@ -14,7 +14,7 @@ import threading
 
 
 # Constants
-PORT = 3000
+DEFAULT_PORT = 3000
 MAX_USERS = 10
 
 class Host:
@@ -104,12 +104,12 @@ def main():
 
     if sys.argv[1] == 'host':
         # tlack host [port]
-        port = PORT if len(sys.argv) < 3 else int(sys.argv[2])
+        port = DEFAULT_PORT if len(sys.argv) < 3 else int(sys.argv[2])
         Host(port)
     elif sys.argv[1] == 'join':
         # tlack join [hostname] [port]
         hostname = socket.gethostname() if len(sys.argv) < 3 else sys.argv[2]
-        port = PORT if len(sys.argv) < 4 else int(sys.argv[3])
+        port = DEFAULT_PORT if len(sys.argv) < 4 else int(sys.argv[3])
         Join(hostname, port)
     else:
         print('unknown command. exiting.')
