@@ -11,6 +11,7 @@ then, just run as usual
 ```bash
 python3 tlack.py COMMAND [ARGS]
 ```
+press `q` and hit enter to quit.
 
 ## Options
 `-h, --host` host server to join, defaults to localhost \

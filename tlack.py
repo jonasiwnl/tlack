@@ -3,6 +3,8 @@ TODO
 GUI stuff & prevent double message for sender
 connect across network instead of single device
 disconnect cleanly from host
+non-blocking recv for join?
+err bad file descriptor
 cmd line args as specifyed in README. prob needs argparse
 """
 
@@ -58,25 +60,30 @@ class Host:
             data = socket.recv(1024)
             if not data:
                 break
+            msg = data.decode('utf-8')
+
+            # ============== COPILOT =============
+            if msg == 'q':
+                print(f'closing connection to {socket.getpeername()[0]}:{socket.getpeername()[1]}')
+                socket.close()
+                self.users.remove(socket)
+                break
+            # ====================================
 
             # Broadcast the message to all clients
-            self.broadcast(data)
+            for user in self.users:
+                user.send(data)
             print(data.decode('utf-8'))
-        socket.close()
-
-    def broadcast(self, msg):
-        for user in self.users:
-            user.send(msg)
 
 
 class Join:
     def __init__(self, hostname: str, port: int):
         self.connector = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connector.setblocking(0)
+        self.connector.setblocking(0) # Set non-blocking
         try:
             self.connector.connect((hostname, port))
         except socket.error as e:
-            # 36 is EINPROGRESS, which means the connection is still in progress
+            # 36 is EINPROGRESS, this will be thrown for non-blocking sockets
             if e.errno != 36:
                 print(str(e))
                 return
@@ -97,20 +104,20 @@ class Join:
         with term.cbreak(), term.hidden_cursor():
             while not self.disconnect:
                 try:
-                    # Maybe this can be blocking!
+                    # This can't be blocking, or quit won't cleanly work
                     data = self.connector.recv(1024)
                     print(data.decode('utf-8'))
                 except socket.error as e:
-                    # 35 means there is no data available
+                    # error 35 means there is no data available
                     if e.errno != 35:
                         print(str(e))
                         return
 
     def send(self):
-        message = input()
-        while message != 'q' and message != 'quit':
-            self.connector.send(message.encode('utf-8'))
+        message = ''
+        while message != 'q':
             message = input()
+            self.connector.send(message.encode('utf-8'))
 
         self.disconnect = True
 
