@@ -2,15 +2,15 @@
 TODO
 GUI stuff & prevent double message for sender
 connect across network instead of single device
-Custom identifier for join (like usernames and color). This prob needs argparse
-Make it possible to pass port like server:port as well as server port
+disconnect cleanly from host
+cmd line args as specifyed in README. prob needs argparse
 """
+
+from blessed import Terminal
 
 import sys
 import socket
 import threading
-
-# import pytermgui as ptg
 
 
 # Constants
@@ -72,29 +72,47 @@ class Host:
 class Join:
     def __init__(self, hostname: str, port: int):
         self.connector = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.connector.setblocking(0)
         try:
             self.connector.connect((hostname, port))
         except socket.error as e:
-            print(str(e))
-            return
+            # 36 is EINPROGRESS, which means the connection is still in progress
+            if e.errno != 36:
+                print(str(e))
+                return
+
+        self.disconnect = False
 
         print(f'connected to hostname {hostname}.')
 
         receiver = threading.Thread(target=self.receive)
         receiver.start()
-
         sender = threading.Thread(target=self.send)
         sender.start()
 
     def receive(self):
-        while True:
-            data = self.connector.recv(1024)
-            print(data.decode('utf-8'))
+        term = Terminal()
+        print(term.home + term.clear)
+
+        with term.cbreak(), term.hidden_cursor():
+            while not self.disconnect:
+                try:
+                    # Maybe this can be blocking!
+                    data = self.connector.recv(1024)
+                    print(data.decode('utf-8'))
+                except socket.error as e:
+                    # 35 means there is no data available
+                    if e.errno != 35:
+                        print(str(e))
+                        return
 
     def send(self):
-        while True:
-            message = input()
+        message = input()
+        while message != 'q' and message != 'quit':
             self.connector.send(message.encode('utf-8'))
+            message = input()
+
+        self.disconnect = True
 
 
 def main():
